@@ -9,6 +9,7 @@ const LoremGenerator = () => {
   const [count, setCount] = useState('3');
   const [type, setType] = useState('paragraphs');
   const [generatedText, setGeneratedText] = useState('');
+  const [startWithLorem, setStartWithLorem] = useState(true);
 
   const loremWords = [
     'lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur', 'adipiscing', 'elit',
@@ -21,35 +22,63 @@ const LoremGenerator = () => {
     'deserunt', 'mollit', 'anim', 'id', 'est', 'laborum'
   ];
 
-  const generateWord = () => {
-    return loremWords[Math.floor(Math.random() * loremWords.length)];
+  const generateWords = (wordCount: number) => {
+    const words = [];
+    
+    if (startWithLorem && wordCount > 0) {
+      words.push('Lorem');
+      if (wordCount > 1) words.push('ipsum');
+      if (wordCount > 2) words.push('dolor');
+      if (wordCount > 3) words.push('sit');
+      if (wordCount > 4) words.push('amet');
+    }
+
+    while (words.length < wordCount) {
+      const randomWord = loremWords[Math.floor(Math.random() * loremWords.length)];
+      words.push(randomWord);
+    }
+
+    return words.join(' ');
   };
 
   const generateSentence = () => {
     const wordCount = Math.floor(Math.random() * 10) + 5; // 5-14 words
-    const words = Array.from({ length: wordCount }, generateWord);
-    words[0] = words[0].charAt(0).toUpperCase() + words[0].slice(1);
-    return words.join(' ') + '.';
+    const words = generateWords(wordCount);
+    return words.charAt(0).toUpperCase() + words.slice(1) + '.';
   };
 
   const generateParagraph = () => {
-    const sentenceCount = Math.floor(Math.random() * 5) + 3; // 3-7 sentences
-    return Array.from({ length: sentenceCount }, generateSentence).join(' ');
+    const sentenceCount = Math.floor(Math.random() * 4) + 3; // 3-6 sentences
+    const sentences = [];
+    
+    for (let i = 0; i < sentenceCount; i++) {
+      sentences.push(generateSentence());
+    }
+    
+    return sentences.join(' ');
   };
 
-  const generateText = () => {
-    const amount = parseInt(count) || 1;
+  const generate = () => {
+    const num = parseInt(count) || 1;
     let result = '';
 
     switch (type) {
       case 'words':
-        result = Array.from({ length: amount }, generateWord).join(' ');
+        result = generateWords(num);
         break;
       case 'sentences':
-        result = Array.from({ length: amount }, generateSentence).join(' ');
+        const sentences = [];
+        for (let i = 0; i < num; i++) {
+          sentences.push(generateSentence());
+        }
+        result = sentences.join(' ');
         break;
       case 'paragraphs':
-        result = Array.from({ length: amount }, generateParagraph).join('\n\n');
+        const paragraphs = [];
+        for (let i = 0; i < num; i++) {
+          paragraphs.push(generateParagraph());
+        }
+        result = paragraphs.join('\n\n');
         break;
     }
 
@@ -57,8 +86,10 @@ const LoremGenerator = () => {
   };
 
   const copyText = () => {
-    navigator.clipboard.writeText(generatedText);
-    alert('Text copied to clipboard!');
+    if (generatedText) {
+      navigator.clipboard.writeText(generatedText);
+      alert('Text copied to clipboard!');
+    }
   };
 
   return (
@@ -68,10 +99,10 @@ const LoremGenerator = () => {
       </h2>
 
       <div className="bg-white dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600">
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid md:grid-cols-3 gap-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Amount
+              Count
             </label>
             <Input
               type="number"
@@ -81,7 +112,7 @@ const LoremGenerator = () => {
               max="100"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Type
@@ -97,28 +128,51 @@ const LoremGenerator = () => {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="flex items-end">
+            <Button onClick={generate} className="w-full">
+              Generate
+            </Button>
+          </div>
         </div>
 
-        <Button onClick={generateText} className="w-full mb-6">
-          Generate Lorem Ipsum
-        </Button>
+        <div className="mb-4">
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              checked={startWithLorem}
+              onChange={(e) => setStartWithLorem(e.target.checked)}
+              className="rounded"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Start with "Lorem ipsum dolor sit amet"
+            </span>
+          </label>
+        </div>
 
         {generatedText && (
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                 Generated Text
-              </label>
-              <Button onClick={copyText} size="sm" variant="outline">
-                Copy
+              </h3>
+              <Button onClick={copyText} variant="outline" size="sm">
+                Copy to Clipboard
               </Button>
             </div>
+            
             <Textarea
               value={generatedText}
               readOnly
               rows={10}
-              className="resize-none"
+              className="font-serif leading-relaxed"
             />
+            
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Words: {generatedText.split(/\s+/).length} | 
+              Characters: {generatedText.length} | 
+              Characters (no spaces): {generatedText.replace(/\s/g, '').length}
+            </div>
           </div>
         )}
       </div>

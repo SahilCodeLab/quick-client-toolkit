@@ -49,8 +49,10 @@ const conversions = {
   }
 };
 
+type ConversionCategory = keyof typeof conversions;
+
 const UnitConverter = () => {
-  const [category, setCategory] = useState('length');
+  const [category, setCategory] = useState<ConversionCategory>('length');
   const [fromUnit, setFromUnit] = useState('meter');
   const [toUnit, setToUnit] = useState('kilometer');
   const [inputValue, setInputValue] = useState('1');
@@ -62,9 +64,9 @@ const UnitConverter = () => {
     if (category === 'temperature') {
       setResult(convertTemperature(value, fromUnit, toUnit));
     } else {
-      const categoryData = conversions[category as keyof typeof conversions];
-      const fromFactor = categoryData.units[fromUnit as keyof typeof categoryData.units].factor;
-      const toFactor = categoryData.units[toUnit as keyof typeof categoryData.units].factor;
+      const categoryData = conversions[category];
+      const fromFactor = (categoryData.units as any)[fromUnit]?.factor || 1;
+      const toFactor = (categoryData.units as any)[toUnit]?.factor || 1;
       
       const baseValue = value * fromFactor;
       const convertedValue = baseValue / toFactor;
@@ -93,8 +95,9 @@ const UnitConverter = () => {
   };
 
   const handleCategoryChange = (newCategory: string) => {
-    setCategory(newCategory);
-    const units = Object.keys(conversions[newCategory as keyof typeof conversions].units);
+    const typedCategory = newCategory as ConversionCategory;
+    setCategory(typedCategory);
+    const units = Object.keys(conversions[typedCategory].units);
     setFromUnit(units[0]);
     setToUnit(units[1] || units[0]);
   };
@@ -103,7 +106,7 @@ const UnitConverter = () => {
     convert();
   }, [inputValue, fromUnit, toUnit, category]);
 
-  const currentCategory = conversions[category as keyof typeof conversions];
+  const currentCategory = conversions[category];
   const unitOptions = Object.entries(currentCategory.units);
 
   return (
@@ -202,7 +205,7 @@ const UnitConverter = () => {
         {/* Result */}
         <div className="bg-gradient-to-r from-green-500 to-blue-600 text-white p-6 rounded-lg text-center">
           <div className="text-sm opacity-90 mb-2">
-            {inputValue} {currentCategory.units[fromUnit as keyof typeof currentCategory.units].name} =
+            {inputValue} {(currentCategory.units as any)[fromUnit]?.name} =
           </div>
           <div className="text-3xl font-bold">
             {result.toLocaleString('en-US', { 
@@ -211,7 +214,7 @@ const UnitConverter = () => {
             })}
           </div>
           <div className="text-lg opacity-90">
-            {currentCategory.units[toUnit as keyof typeof currentCategory.units].name}
+            {(currentCategory.units as any)[toUnit]?.name}
           </div>
         </div>
       </div>

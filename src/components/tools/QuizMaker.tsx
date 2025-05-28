@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { X } from 'lucide-react';
 
 interface Question {
   id: string;
@@ -16,28 +16,41 @@ interface Question {
 interface Quiz {
   id: string;
   title: string;
+  description: string;
   questions: Question[];
+  createdAt: Date;
 }
 
 const QuizMaker = () => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [isTaking, setIsTaking] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<number[]>([]);
-  const [showResults, setShowResults] = useState(false);
+  const [quizCompleted, setQuizCompleted] = useState(false);
+  const [score, setScore] = useState(0);
 
-  // Form states
-  const [newQuizTitle, setNewQuizTitle] = useState('');
-  const [newQuestion, setNewQuestion] = useState('');
-  const [newOptions, setNewOptions] = useState(['', '', '', '']);
-  const [correctOption, setCorrectOption] = useState(0);
+  // Quiz creation state
+  const [newQuiz, setNewQuiz] = useState({
+    title: '',
+    description: '',
+    questions: [] as Question[]
+  });
+
+  const [newQuestion, setNewQuestion] = useState({
+    question: '',
+    options: ['', '', '', ''],
+    correctAnswer: 0
+  });
 
   useEffect(() => {
-    const saved = localStorage.getItem('quizzes');
-    if (saved) {
-      setQuizzes(JSON.parse(saved));
+    const savedQuizzes = localStorage.getItem('quizzes');
+    if (savedQuizzes) {
+      setQuizzes(JSON.parse(savedQuizzes).map((quiz: any) => ({
+        ...quiz,
+        createdAt: new Date(quiz.createdAt)
+      })));
     }
   }, []);
 
@@ -45,128 +58,149 @@ const QuizMaker = () => {
     localStorage.setItem('quizzes', JSON.stringify(quizzes));
   }, [quizzes]);
 
-  const createNewQuiz = () => {
-    if (!newQuizTitle.trim()) return;
-
-    const quiz: Quiz = {
-      id: Date.now().toString(),
-      title: newQuizTitle.trim(),
-      questions: []
-    };
-
-    setQuizzes([...quizzes, quiz]);
-    setCurrentQuiz(quiz);
-    setNewQuizTitle('');
-    setIsCreating(true);
-  };
-
   const addQuestion = () => {
-    if (!currentQuiz || !newQuestion.trim() || newOptions.some(opt => !opt.trim())) return;
+    if (!newQuestion.question.trim() || newQuestion.options.some(opt => !opt.trim())) {
+      alert('Please fill in all fields for the question!');
+      return;
+    }
 
     const question: Question = {
       id: Date.now().toString(),
-      question: newQuestion.trim(),
-      options: newOptions.map(opt => opt.trim()),
-      correctAnswer: correctOption
+      question: newQuestion.question.trim(),
+      options: newQuestion.options.map(opt => opt.trim()),
+      correctAnswer: newQuestion.correctAnswer
     };
 
-    const updatedQuiz = {
-      ...currentQuiz,
-      questions: [...currentQuiz.questions, question]
+    setNewQuiz(prev => ({
+      ...prev,
+      questions: [...prev.questions, question]
+    }));
+
+    setNewQuestion({
+      question: '',
+      options: ['', '', '', ''],
+      correctAnswer: 0
+    });
+  };
+
+  const createQuiz = () => {
+    if (!newQuiz.title.trim() || newQuiz.questions.length === 0) {
+      alert('Please add a title and at least one question!');
+      return;
+    }
+
+    const quiz: Quiz = {
+      id: Date.now().toString(),
+      title: newQuiz.title.trim(),
+      description: newQuiz.description.trim(),
+      questions: newQuiz.questions,
+      createdAt: new Date()
     };
 
-    setQuizzes(quizzes.map(q => q.id === currentQuiz.id ? updatedQuiz : q));
-    setCurrentQuiz(updatedQuiz);
-    
-    // Reset form
-    setNewQuestion('');
-    setNewOptions(['', '', '', '']);
-    setCorrectOption(0);
+    setQuizzes([...quizzes, quiz]);
+    setNewQuiz({ title: '', description: '', questions: [] });
+    setIsCreating(false);
   };
 
   const startQuiz = (quiz: Quiz) => {
-    setCurrentQuiz(quiz);
+    setSelectedQuiz(quiz);
     setIsTaking(true);
     setCurrentQuestionIndex(0);
     setUserAnswers([]);
-    setShowResults(false);
+    setQuizCompleted(false);
   };
 
   const answerQuestion = (answerIndex: number) => {
     const newAnswers = [...userAnswers];
     newAnswers[currentQuestionIndex] = answerIndex;
     setUserAnswers(newAnswers);
-  };
 
-  const nextQuestion = () => {
-    if (currentQuestionIndex < (currentQuiz?.questions.length || 0) - 1) {
+    if (currentQuestionIndex < selectedQuiz!.questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
-      setShowResults(true);
+      // Quiz completed
+      const correctAnswers = selectedQuiz!.questions.filter(
+        (q, index) => q.correctAnswer === newAnswers[index]
+      ).length;
+      setScore(correctAnswers);
+      setQuizCompleted(true);
     }
   };
 
-  const calculateScore = () => {
-    if (!currentQuiz) return 0;
-    
-    let correct = 0;
-    currentQuiz.questions.forEach((question, index) => {
-      if (userAnswers[index] === question.correctAnswer) {
-        correct++;
-      }
-    });
-    
-    return Math.round((correct / currentQuiz.questions.length) * 100);
+  const resetQuiz = () => {
+    setIsTaking(false);
+    setSelectedQuiz(null);
+    setCurrentQuestionIndex(0);
+    setUserAnswers([]);
+    setQuizCompleted(false);
   };
 
-  if (showResults && currentQuiz) {
-    const score = calculateScore();
-    
-    return (
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white dark:bg-gray-700 p-8 rounded-xl border border-gray-200 dark:border-gray-600 text-center">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">
-            Quiz Complete!
-          </h2>
-          
-          <div className="bg-blue-100 dark:bg-blue-900 p-6 rounded-lg mb-6">
-            <div className="text-4xl font-bold text-blue-700 dark:text-blue-300 mb-2">
-              {score}%
-            </div>
-            <div className="text-lg text-gray-600 dark:text-gray-400">
-              You got {userAnswers.filter((answer, index) => answer === currentQuiz.questions[index].correctAnswer).length} out of {currentQuiz.questions.length} questions correct
-            </div>
-          </div>
+  const deleteQuiz = (quizId: string) => {
+    setQuizzes(quizzes.filter(quiz => quiz.id !== quizId));
+  };
 
-          <div className="flex gap-4 justify-center">
-            <Button onClick={() => {
-              setIsTaking(false);
-              setShowResults(false);
-              setCurrentQuiz(null);
-            }}>
+  if (isTaking && selectedQuiz) {
+    if (quizCompleted) {
+      const percentage = Math.round((score / selectedQuiz.questions.length) * 100);
+      
+      return (
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white dark:bg-gray-700 p-8 rounded-xl border border-gray-200 dark:border-gray-600 text-center">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">
+              Quiz Completed! 🎉
+            </h2>
+            
+            <div className="mb-6">
+              <div className="text-6xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+                {score}/{selectedQuiz.questions.length}
+              </div>
+              <div className="text-xl text-gray-600 dark:text-gray-400">
+                {percentage}% Correct
+              </div>
+            </div>
+
+            <div className={`text-lg font-semibold mb-6 ${
+              percentage >= 80 ? 'text-green-600' :
+              percentage >= 60 ? 'text-yellow-600' : 'text-red-600'
+            }`}>
+              {percentage >= 80 ? 'Excellent!' :
+               percentage >= 60 ? 'Good Job!' : 'Keep Practicing!'}
+            </div>
+
+            <Button onClick={resetQuiz} className="mr-4">
               Back to Quizzes
             </Button>
-            <Button onClick={() => startQuiz(currentQuiz)} variant="outline">
+            <Button onClick={() => startQuiz(selectedQuiz)} variant="outline">
               Retake Quiz
             </Button>
           </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (isTaking && currentQuiz) {
-    const currentQuestion = currentQuiz.questions[currentQuestionIndex];
+    const currentQuestion = selectedQuiz.questions[currentQuestionIndex];
     
     return (
       <div className="max-w-2xl mx-auto">
         <div className="bg-white dark:bg-gray-700 p-8 rounded-xl border border-gray-200 dark:border-gray-600">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-              {currentQuiz.title}
+              {selectedQuiz.title}
             </h2>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Question {currentQuestionIndex + 1} of {currentQuiz.questions.length}
+            <Button onClick={resetQuiz} variant="outline" size="sm">
+              Exit Quiz
+            </Button>
+          </div>
+
+          <div className="mb-6">
+            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              Question {currentQuestionIndex + 1} of {selectedQuiz.questions.length}
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+              <div 
+                className="bg-blue-500 h-2 rounded-full transition-all"
+                style={{ width: `${((currentQuestionIndex + 1) / selectedQuiz.questions.length) * 100}%` }}
+              />
             </div>
           </div>
 
@@ -174,109 +208,154 @@ const QuizMaker = () => {
             <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-6">
               {currentQuestion.question}
             </h3>
-
-            <RadioGroup
-              value={userAnswers[currentQuestionIndex]?.toString()}
-              onValueChange={(value) => answerQuestion(parseInt(value))}
-            >
+            
+            <div className="space-y-3">
               {currentQuestion.options.map((option, index) => (
-                <div key={index} className="flex items-center space-x-2 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">
-                  <RadioGroupItem value={index.toString()} id={`option-${index}`} />
-                  <Label htmlFor={`option-${index}`} className="flex-1 cursor-pointer">
-                    {option}
-                  </Label>
-                </div>
+                <Button
+                  key={index}
+                  onClick={() => answerQuestion(index)}
+                  variant="outline"
+                  className="w-full text-left justify-start p-4 h-auto"
+                >
+                  <span className="mr-3 w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-sm">
+                    {String.fromCharCode(65 + index)}
+                  </span>
+                  {option}
+                </Button>
               ))}
-            </RadioGroup>
-          </div>
-
-          <div className="flex justify-between">
-            <Button
-              onClick={() => {
-                setIsTaking(false);
-                setCurrentQuiz(null);
-              }}
-              variant="outline"
-            >
-              Exit Quiz
-            </Button>
-            <Button
-              onClick={nextQuestion}
-              disabled={userAnswers[currentQuestionIndex] === undefined}
-            >
-              {currentQuestionIndex === currentQuiz.questions.length - 1 ? 'Finish Quiz' : 'Next Question'}
-            </Button>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  if (isCreating && currentQuiz) {
+  if (isCreating) {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-              Creating: {currentQuiz.title}
-            </h2>
-            <Button
-              onClick={() => {
-                setIsCreating(false);
-                setCurrentQuiz(null);
-              }}
-              variant="outline"
-            >
-              Done Creating
-            </Button>
-          </div>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-8 text-center">
+          Create New Quiz
+        </h2>
 
-          <div className="space-y-6">
+        <div className="bg-white dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600">
+          <div className="space-y-4 mb-6">
             <div>
-              <Label className="text-base font-medium">Question</Label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Quiz Title *
+              </label>
+              <Input
+                value={newQuiz.title}
+                onChange={(e) => setNewQuiz({ ...newQuiz, title: e.target.value })}
+                placeholder="Enter quiz title"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Description
+              </label>
               <Textarea
-                value={newQuestion}
-                onChange={(e) => setNewQuestion(e.target.value)}
-                placeholder="Enter your question"
+                value={newQuiz.description}
+                onChange={(e) => setNewQuiz({ ...newQuiz, description: e.target.value })}
+                placeholder="Enter quiz description"
                 rows={3}
               />
             </div>
+          </div>
 
-            <div>
-              <Label className="text-base font-medium">Answer Options</Label>
-              <div className="space-y-3 mt-2">
-                {newOptions.map((option, index) => (
-                  <div key={index} className="flex items-center space-x-3">
+          {/* Add Question Section */}
+          <div className="border-t border-gray-200 dark:border-gray-600 pt-6 mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+              Add Question
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Question *
+                </label>
+                <Textarea
+                  value={newQuestion.question}
+                  onChange={(e) => setNewQuestion({ ...newQuestion, question: e.target.value })}
+                  placeholder="Enter your question"
+                  rows={2}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Options *
+                </label>
+                {newQuestion.options.map((option, index) => (
+                  <div key={index} className="flex items-center gap-2 mb-2">
                     <input
                       type="radio"
-                      name="correct"
-                      checked={correctOption === index}
-                      onChange={() => setCorrectOption(index)}
+                      name="correctAnswer"
+                      checked={newQuestion.correctAnswer === index}
+                      onChange={() => setNewQuestion({ ...newQuestion, correctAnswer: index })}
                       className="text-blue-600"
                     />
                     <Input
                       value={option}
                       onChange={(e) => {
-                        const updated = [...newOptions];
-                        updated[index] = e.target.value;
-                        setNewOptions(updated);
+                        const newOptions = [...newQuestion.options];
+                        newOptions[index] = e.target.value;
+                        setNewQuestion({ ...newQuestion, options: newOptions });
                       }}
-                      placeholder={`Option ${index + 1}`}
+                      placeholder={`Option ${String.fromCharCode(65 + index)}`}
                     />
                   </div>
                 ))}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                Select the radio button next to the correct answer
+              
+              <Button onClick={addQuestion} variant="outline" className="w-full">
+                Add Question
+              </Button>
+            </div>
+          </div>
+
+          {/* Added Questions */}
+          {newQuiz.questions.length > 0 && (
+            <div className="border-t border-gray-200 dark:border-gray-600 pt-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                Questions Added ({newQuiz.questions.length})
+              </h3>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {newQuiz.questions.map((q, index) => (
+                  <div key={q.id} className="p-3 bg-gray-100 dark:bg-gray-600 rounded-lg">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium text-gray-800 dark:text-white">
+                          {index + 1}. {q.question}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          Correct: {q.options[q.correctAnswer]}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => setNewQuiz(prev => ({
+                          ...prev,
+                          questions: prev.questions.filter(question => question.id !== q.id)
+                        }))}
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500"
+                      >
+                        <X size={16} />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
+          )}
 
-            <Button
-              onClick={addQuestion}
-              disabled={!newQuestion.trim() || newOptions.some(opt => !opt.trim())}
-              className="w-full"
-            >
-              Add Question ({currentQuiz.questions.length} added)
+          <div className="flex gap-2">
+            <Button onClick={() => setIsCreating(false)} variant="outline" className="flex-1">
+              Cancel
+            </Button>
+            <Button onClick={createQuiz} className="flex-1">
+              Create Quiz
             </Button>
           </div>
         </div>
@@ -285,74 +364,59 @@ const QuizMaker = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-8 text-center">
-        Quiz Maker
-      </h2>
-
-      {/* Create New Quiz */}
-      <div className="bg-white dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600 mb-6">
-        <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">
+    <div className="max-w-4xl mx-auto">
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+          Quiz Maker
+        </h2>
+        <Button onClick={() => setIsCreating(true)}>
           Create New Quiz
-        </h3>
-        
-        <div className="flex gap-3">
-          <Input
-            value={newQuizTitle}
-            onChange={(e) => setNewQuizTitle(e.target.value)}
-            placeholder="Enter quiz title"
-            className="flex-1"
-          />
-          <Button onClick={createNewQuiz} disabled={!newQuizTitle.trim()}>
-            Create Quiz
-          </Button>
-        </div>
+        </Button>
       </div>
 
-      {/* Quiz List */}
-      <div className="bg-white dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600">
-        <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">
-          Your Quizzes ({quizzes.length})
-        </h3>
-
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {quizzes.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            No quizzes yet. Create your first quiz above!
+          <div className="col-span-full text-center py-12 text-gray-500 dark:text-gray-400">
+            <h3 className="text-xl font-medium mb-2">No Quizzes Yet</h3>
+            <p>Create your first quiz to get started!</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {quizzes.map(quiz => (
-              <div key={quiz.id} className="flex justify-between items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
-                <div>
-                  <h4 className="font-medium text-gray-800 dark:text-white">
+          quizzes.map(quiz => (
+            <Card key={quiz.id} className="cursor-pointer hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="font-semibold text-gray-800 dark:text-white">
                     {quiz.title}
-                  </h4>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {quiz.questions.length} questions
-                  </div>
-                </div>
-                <div className="flex gap-2">
+                  </h3>
                   <Button
-                    onClick={() => startQuiz(quiz)}
-                    disabled={quiz.questions.length === 0}
-                    size="sm"
-                  >
-                    Take Quiz
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setCurrentQuiz(quiz);
-                      setIsCreating(true);
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteQuiz(quiz.id);
                     }}
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="text-red-500"
                   >
-                    Edit
+                    <X size={16} />
                   </Button>
                 </div>
-              </div>
-            ))}
-          </div>
+                
+                {quiz.description && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    {quiz.description}
+                  </p>
+                )}
+                
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  {quiz.questions.length} questions • Created {quiz.createdAt.toLocaleDateString()}
+                </div>
+                
+                <Button onClick={() => startQuiz(quiz)} className="w-full">
+                  Take Quiz
+                </Button>
+              </CardContent>
+            </Card>
+          ))
         )}
       </div>
     </div>

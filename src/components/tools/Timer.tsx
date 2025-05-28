@@ -4,12 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 const Timer = () => {
-  const [totalTime, setTotalTime] = useState(0);
+  const [minutes, setMinutes] = useState(5);
+  const [seconds, setSeconds] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
-  const [inputMinutes, setInputMinutes] = useState('');
-  const [inputSeconds, setInputSeconds] = useState('');
+  const [isFinished, setIsFinished] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
@@ -17,8 +18,8 @@ const Timer = () => {
         setTimeLeft(prevTime => {
           if (prevTime <= 1) {
             setIsRunning(false);
-            // Timer finished - could add notification here
-            alert('Timer finished!');
+            setIsFinished(true);
+            // Play notification sound (you can add a sound file here)
             return 0;
           }
           return prevTime - 1;
@@ -37,32 +38,23 @@ const Timer = () => {
     };
   }, [isRunning, timeLeft]);
 
-  const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    if (hours > 0) {
-      return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
+  const formatTime = (totalSeconds: number) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const setTimer = () => {
-    const minutes = parseInt(inputMinutes) || 0;
-    const seconds = parseInt(inputSeconds) || 0;
-    const total = minutes * 60 + seconds;
-    
-    if (total > 0) {
-      setTotalTime(total);
-      setTimeLeft(total);
-      setIsRunning(false);
-    }
-  };
-
   const handleStart = () => {
-    if (timeLeft > 0) {
+    if (timeLeft === 0) {
+      const totalSeconds = minutes * 60 + seconds;
+      if (totalSeconds > 0) {
+        setTimeLeft(totalSeconds);
+        setIsRunning(true);
+        setIsFinished(false);
+      }
+    } else {
       setIsRunning(true);
+      setIsFinished(false);
     }
   };
 
@@ -72,144 +64,121 @@ const Timer = () => {
 
   const handleReset = () => {
     setIsRunning(false);
-    setTimeLeft(totalTime);
-  };
-
-  const handleClear = () => {
-    setIsRunning(false);
     setTimeLeft(0);
-    setTotalTime(0);
-    setInputMinutes('');
-    setInputSeconds('');
+    setIsFinished(false);
   };
 
-  const progressPercentage = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
+  const handlePreset = (mins: number) => {
+    setMinutes(mins);
+    setSeconds(0);
+    if (!isRunning) {
+      setTimeLeft(0);
+      setIsFinished(false);
+    }
+  };
+
+  const getProgress = () => {
+    const totalTime = minutes * 60 + seconds;
+    if (totalTime === 0) return 0;
+    return ((totalTime - timeLeft) / totalTime) * 100;
+  };
 
   return (
-    <div className="max-w-md mx-auto text-center">
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-8">Timer</h2>
+    <div className="max-w-md mx-auto">
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-8 text-center">
+        Timer
+      </h2>
 
-      {/* Time Input */}
-      <div className="mb-8">
-        <div className="flex justify-center gap-2 mb-4">
-          <div className="flex flex-col">
-            <Input
-              type="number"
-              placeholder="Min"
-              value={inputMinutes}
-              onChange={(e) => setInputMinutes(e.target.value)}
-              className="w-20 text-center"
-              min="0"
-              max="999"
-            />
-            <label className="text-sm text-gray-500 mt-1">Minutes</label>
+      <div className="bg-white dark:bg-gray-700 p-8 rounded-xl border border-gray-200 dark:border-gray-600">
+        {/* Timer Display */}
+        <div className="text-center mb-8">
+          <div className={`text-6xl font-mono font-bold mb-4 ${
+            isFinished ? 'text-red-500' : 'text-gray-800 dark:text-white'
+          }`}>
+            {timeLeft > 0 ? formatTime(timeLeft) : formatTime(minutes * 60 + seconds)}
           </div>
-          <div className="flex flex-col">
-            <Input
-              type="number"
-              placeholder="Sec"
-              value={inputSeconds}
-              onChange={(e) => setInputSeconds(e.target.value)}
-              className="w-20 text-center"
-              min="0"
-              max="59"
-            />
-            <label className="text-sm text-gray-500 mt-1">Seconds</label>
-          </div>
+          
+          {isFinished && (
+            <div className="text-red-500 font-semibold text-lg animate-pulse">
+              Time's Up! ⏰
+            </div>
+          )}
+          
+          {timeLeft > 0 && (
+            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mb-4">
+              <div 
+                className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
+                style={{ width: `${getProgress()}%` }}
+              />
+            </div>
+          )}
         </div>
-        <Button onClick={setTimer} className="w-full">
-          Set Timer
-        </Button>
-      </div>
 
-      {/* Timer Display */}
-      <div className="relative mb-8">
-        <div className="bg-gray-900 text-white p-8 rounded-2xl relative overflow-hidden">
-          {/* Progress Bar */}
-          <div
-            className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-1000 ease-linear"
-            style={{ width: `${progressPercentage}%` }}
-          />
-          <div className="relative z-10">
-            <div className="text-5xl font-mono font-bold">
-              {formatTime(timeLeft)}
+        {/* Time Input */}
+        {!isRunning && timeLeft === 0 && (
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Minutes
+              </label>
+              <Input
+                type="number"
+                value={minutes}
+                onChange={(e) => setMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                min="0"
+                max="59"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Seconds
+              </label>
+              <Input
+                type="number"
+                value={seconds}
+                onChange={(e) => setSeconds(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                min="0"
+                max="59"
+              />
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Control Buttons */}
-      <div className="flex justify-center gap-4 mb-8">
-        {!isRunning ? (
-          <Button
-            onClick={handleStart}
-            className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 text-lg"
-            disabled={timeLeft === 0}
-          >
-            Start
-          </Button>
-        ) : (
-          <Button
-            onClick={handlePause}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white px-8 py-3 text-lg"
-          >
-            Pause
-          </Button>
         )}
-        
-        <Button
-          onClick={handleReset}
-          variant="outline"
-          className="px-8 py-3 text-lg"
-          disabled={totalTime === 0}
-        >
-          Reset
-        </Button>
-        
-        <Button
-          onClick={handleClear}
-          variant="outline"
-          className="px-8 py-3 text-lg"
-        >
-          Clear
-        </Button>
-      </div>
 
-      {/* Quick Set Buttons */}
-      <div className="grid grid-cols-3 gap-2">
-        <Button
-          variant="outline"
-          onClick={() => {
-            setInputMinutes('5');
-            setInputSeconds('0');
-            setTimer();
-          }}
-          className="text-sm"
-        >
-          5 min
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setInputMinutes('10');
-            setInputSeconds('0');
-            setTimer();
-          }}
-          className="text-sm"
-        >
-          10 min
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setInputMinutes('15');
-            setInputSeconds('0');
-            setTimer();
-          }}
-          className="text-sm"
-        >
-          15 min
-        </Button>
+        {/* Preset Buttons */}
+        {!isRunning && timeLeft === 0 && (
+          <div className="grid grid-cols-4 gap-2 mb-6">
+            {[1, 5, 10, 15].map(preset => (
+              <Button
+                key={preset}
+                onClick={() => handlePreset(preset)}
+                variant="outline"
+                size="sm"
+              >
+                {preset}m
+              </Button>
+            ))}
+          </div>
+        )}
+
+        {/* Control Buttons */}
+        <div className="flex justify-center gap-4">
+          {!isRunning ? (
+            <Button 
+              onClick={handleStart} 
+              disabled={minutes === 0 && seconds === 0 && timeLeft === 0}
+              className="min-w-20"
+            >
+              Start
+            </Button>
+          ) : (
+            <Button onClick={handlePause} variant="outline" className="min-w-20">
+              Pause
+            </Button>
+          )}
+          <Button onClick={handleReset} variant="outline" className="min-w-20">
+            Reset
+          </Button>
+        </div>
       </div>
     </div>
   );

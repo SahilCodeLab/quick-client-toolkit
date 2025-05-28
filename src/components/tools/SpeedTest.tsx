@@ -4,44 +4,65 @@ import { Button } from '@/components/ui/button';
 
 const SpeedTest = () => {
   const [isRunning, setIsRunning] = useState(false);
-  const [downloadSpeed, setDownloadSpeed] = useState(0);
-  const [uploadSpeed, setUploadSpeed] = useState(0);
-  const [ping, setPing] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [currentTest, setCurrentTest] = useState<'download' | 'upload' | 'ping' | null>(null);
+  const [results, setResults] = useState({
+    download: 0,
+    upload: 0,
+    ping: 0
+  });
 
-  const simulateSpeedTest = async () => {
+  const runSpeedTest = () => {
     setIsRunning(true);
     setProgress(0);
-    setDownloadSpeed(0);
-    setUploadSpeed(0);
-    setPing(0);
+    setResults({ download: 0, upload: 0, ping: 0 });
 
     // Simulate ping test
-    for (let i = 0; i <= 20; i++) {
-      setProgress(i);
-      setPing(Math.random() * 50 + 10);
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+    setCurrentTest('ping');
+    setTimeout(() => {
+      const pingValue = Math.floor(Math.random() * 50) + 10; // 10-60ms
+      setResults(prev => ({ ...prev, ping: pingValue }));
+      setProgress(33);
 
-    // Simulate download test
-    for (let i = 21; i <= 60; i++) {
-      setProgress(i);
-      setDownloadSpeed(Math.random() * 100 + 20);
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+      // Simulate download test
+      setCurrentTest('download');
+      setTimeout(() => {
+        const downloadSpeed = Math.floor(Math.random() * 100) + 50; // 50-150 Mbps
+        setResults(prev => ({ ...prev, download: downloadSpeed }));
+        setProgress(66);
 
-    // Simulate upload test
-    for (let i = 61; i <= 100; i++) {
-      setProgress(i);
-      setUploadSpeed(Math.random() * 50 + 10);
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+        // Simulate upload test
+        setCurrentTest('upload');
+        setTimeout(() => {
+          const uploadSpeed = Math.floor(Math.random() * 50) + 20; // 20-70 Mbps
+          setResults(prev => ({ ...prev, upload: uploadSpeed }));
+          setProgress(100);
+          setCurrentTest(null);
+          setIsRunning(false);
+        }, 2000);
+      }, 2000);
+    }, 1000);
+  };
 
-    // Final results
-    setDownloadSpeed(Math.round((Math.random() * 80 + 20) * 100) / 100);
-    setUploadSpeed(Math.round((Math.random() * 40 + 10) * 100) / 100);
-    setPing(Math.round((Math.random() * 30 + 5) * 100) / 100);
-    setIsRunning(false);
+  const getSpeedRating = (speed: number, type: 'download' | 'upload') => {
+    if (type === 'download') {
+      if (speed >= 100) return { text: 'Excellent', color: 'text-green-600' };
+      if (speed >= 50) return { text: 'Good', color: 'text-blue-600' };
+      if (speed >= 25) return { text: 'Fair', color: 'text-yellow-600' };
+      return { text: 'Poor', color: 'text-red-600' };
+    } else {
+      if (speed >= 50) return { text: 'Excellent', color: 'text-green-600' };
+      if (speed >= 25) return { text: 'Good', color: 'text-blue-600' };
+      if (speed >= 10) return { text: 'Fair', color: 'text-yellow-600' };
+      return { text: 'Poor', color: 'text-red-600' };
+    }
+  };
+
+  const getPingRating = (ping: number) => {
+    if (ping <= 20) return { text: 'Excellent', color: 'text-green-600' };
+    if (ping <= 50) return { text: 'Good', color: 'text-blue-600' };
+    if (ping <= 100) return { text: 'Fair', color: 'text-yellow-600' };
+    return { text: 'Poor', color: 'text-red-600' };
   };
 
   return (
@@ -51,86 +72,116 @@ const SpeedTest = () => {
       </h2>
 
       <div className="bg-white dark:bg-gray-700 p-8 rounded-xl border border-gray-200 dark:border-gray-600">
-        {/* Speed Meter */}
+        {/* Speed Gauge */}
         <div className="text-center mb-8">
-          <div className="relative w-64 h-32 mx-auto mb-6">
-            <svg className="w-full h-full" viewBox="0 0 200 100">
-              {/* Meter Background */}
-              <path
-                d="M 20 80 A 80 80 0 0 1 180 80"
-                fill="none"
-                stroke="#e5e7eb"
+          <div className="relative w-48 h-48 mx-auto mb-6">
+            {/* Gauge Background */}
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+              <circle
+                cx="50"
+                cy="50"
+                r="40"
+                stroke="currentColor"
                 strokeWidth="8"
-                className="dark:stroke-gray-600"
-              />
-              {/* Progress Arc */}
-              <path
-                d="M 20 80 A 80 80 0 0 1 180 80"
                 fill="none"
-                stroke="url(#gradient)"
-                strokeWidth="8"
-                strokeDasharray={`${(progress / 100) * 251.3} 251.3`}
-                strokeLinecap="round"
+                className="text-gray-200 dark:text-gray-600"
               />
-              <defs>
-                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#3b82f6" />
-                  <stop offset="50%" stopColor="#8b5cf6" />
-                  <stop offset="100%" stopColor="#ef4444" />
-                </linearGradient>
-              </defs>
-              {/* Center Text */}
-              <text x="100" y="70" textAnchor="middle" className="fill-gray-800 dark:fill-white text-sm font-medium">
-                {isRunning ? `${progress}%` : 'Ready'}
-              </text>
+              <circle
+                cx="50"
+                cy="50"
+                r="40"
+                stroke="currentColor"
+                strokeWidth="8"
+                fill="none"
+                strokeDasharray={`${progress * 2.51} 251`}
+                className="text-blue-500 transition-all duration-1000"
+              />
             </svg>
+            
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-gray-800 dark:text-white">
+                  {Math.round(progress)}%
+                </div>
+                {currentTest && (
+                  <div className="text-sm text-gray-600 dark:text-gray-400 capitalize">
+                    Testing {currentTest}...
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {!isRunning && progress === 0 ? (
-            <Button onClick={simulateSpeedTest} size="lg" className="bg-blue-600 hover:bg-blue-700">
-              Start Speed Test
-            </Button>
-          ) : (
-            <div className="text-lg font-medium text-gray-600 dark:text-gray-300">
-              {isRunning ? 'Testing...' : 'Test Complete!'}
-            </div>
-          )}
+          <Button 
+            onClick={runSpeedTest} 
+            disabled={isRunning}
+            className="px-8 py-3 text-lg"
+          >
+            {isRunning ? 'Testing...' : 'Start Speed Test'}
+          </Button>
         </div>
 
         {/* Results */}
-        {(downloadSpeed > 0 || uploadSpeed > 0 || ping > 0) && (
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="text-center p-6 bg-blue-50 dark:bg-blue-900 rounded-lg">
-              <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                {downloadSpeed.toFixed(1)}
+        {(results.download > 0 || results.upload > 0 || results.ping > 0) && (
+          <div className="grid md:grid-cols-3 gap-6 mt-8">
+            {/* Download Speed */}
+            <div className="text-center p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+                {results.download}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Download Mbps</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                Mbps Download
+              </div>
+              {results.download > 0 && (
+                <div className={`text-sm font-medium ${getSpeedRating(results.download, 'download').color}`}>
+                  {getSpeedRating(results.download, 'download').text}
+                </div>
+              )}
             </div>
 
-            <div className="text-center p-6 bg-green-50 dark:bg-green-900 rounded-lg">
-              <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                {uploadSpeed.toFixed(1)}
+            {/* Upload Speed */}
+            <div className="text-center p-6 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-2">
+                {results.upload}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Upload Mbps</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                Mbps Upload
+              </div>
+              {results.upload > 0 && (
+                <div className={`text-sm font-medium ${getSpeedRating(results.upload, 'upload').color}`}>
+                  {getSpeedRating(results.upload, 'upload').text}
+                </div>
+              )}
             </div>
 
-            <div className="text-center p-6 bg-yellow-50 dark:bg-yellow-900 rounded-lg">
-              <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
-                {ping.toFixed(0)}
+            {/* Ping */}
+            <div className="text-center p-6 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+              <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+                {results.ping}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Ping ms</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                ms Ping
+              </div>
+              {results.ping > 0 && (
+                <div className={`text-sm font-medium ${getPingRating(results.ping).color}`}>
+                  {getPingRating(results.ping).text}
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {progress === 100 && !isRunning && (
-          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-600 rounded-lg text-center">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Note: This is a simulated speed test for demonstration purposes.
-              For accurate results, use your ISP's official speed test.
-            </div>
-          </div>
-        )}
+        {/* Information */}
+        <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-600 rounded-lg">
+          <h4 className="font-medium text-gray-800 dark:text-white mb-2">
+            About This Test
+          </h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            This is a simulated speed test for demonstration purposes. In a real application, this would
+            measure your actual internet connection speed by downloading and uploading test files
+            and measuring latency to servers.
+          </p>
+        </div>
       </div>
     </div>
   );

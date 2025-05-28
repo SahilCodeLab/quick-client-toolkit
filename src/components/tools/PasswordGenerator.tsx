@@ -3,50 +3,60 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Slider } from '@/components/ui/slider';
 
 const PasswordGenerator = () => {
-  const [password, setPassword] = useState('');
-  const [length, setLength] = useState([12]);
+  const [length, setLength] = useState(12);
   const [includeUppercase, setIncludeUppercase] = useState(true);
   const [includeLowercase, setIncludeLowercase] = useState(true);
   const [includeNumbers, setIncludeNumbers] = useState(true);
   const [includeSymbols, setIncludeSymbols] = useState(false);
+  const [password, setPassword] = useState('');
 
   const generatePassword = () => {
     let charset = '';
+    
     if (includeUppercase) charset += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     if (includeLowercase) charset += 'abcdefghijklmnopqrstuvwxyz';
     if (includeNumbers) charset += '0123456789';
     if (includeSymbols) charset += '!@#$%^&*()_+-=[]{}|;:,.<>?';
-
-    if (!charset) return;
-
+    
+    if (!charset) {
+      alert('Please select at least one character type!');
+      return;
+    }
+    
     let result = '';
-    for (let i = 0; i < length[0]; i++) {
+    for (let i = 0; i < length; i++) {
       result += charset.charAt(Math.floor(Math.random() * charset.length));
     }
+    
     setPassword(result);
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(password);
-    alert('Password copied to clipboard!');
+  const copyPassword = () => {
+    if (password) {
+      navigator.clipboard.writeText(password);
+      alert('Password copied to clipboard!');
+    }
   };
 
-  const getPasswordStrength = (pwd: string) => {
+  const getPasswordStrength = () => {
+    if (!password) return { text: 'Generate a password', color: 'text-gray-500' };
+    
     let score = 0;
-    if (pwd.length >= 8) score++;
-    if (pwd.length >= 12) score++;
-    if (/[a-z]/.test(pwd)) score++;
-    if (/[A-Z]/.test(pwd)) score++;
-    if (/[0-9]/.test(pwd)) score++;
-    if (/[^A-Za-z0-9]/.test(pwd)) score++;
-
-    if (score < 3) return { text: 'Weak', color: 'text-red-500' };
-    if (score < 5) return { text: 'Medium', color: 'text-yellow-500' };
-    return { text: 'Strong', color: 'text-green-500' };
+    if (password.length >= 12) score++;
+    if (includeUppercase) score++;
+    if (includeLowercase) score++;
+    if (includeNumbers) score++;
+    if (includeSymbols) score++;
+    
+    if (score <= 2) return { text: 'Weak', color: 'text-red-600' };
+    if (score <= 3) return { text: 'Medium', color: 'text-yellow-600' };
+    if (score <= 4) return { text: 'Strong', color: 'text-green-600' };
+    return { text: 'Very Strong', color: 'text-green-700' };
   };
+
+  const strength = getPasswordStrength();
 
   return (
     <div className="max-w-md mx-auto">
@@ -55,91 +65,63 @@ const PasswordGenerator = () => {
       </h2>
 
       <div className="bg-white dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600">
-        {/* Password Display */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Generated Password
+            Password Length: {length}
           </label>
-          <div className="flex gap-2">
-            <Input
-              type="text"
-              value={password}
-              readOnly
-              placeholder="Click generate to create password"
-              className="font-mono"
-            />
-            <Button
-              onClick={copyToClipboard}
-              disabled={!password}
-              size="sm"
-            >
-              Copy
-            </Button>
-          </div>
-          {password && (
-            <div className="mt-2 text-sm">
-              Strength: <span className={getPasswordStrength(password).color}>
-                {getPasswordStrength(password).text}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Length Slider */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Length: {length[0]}
-          </label>
-          <Slider
+          <input
+            type="range"
+            min="4"
+            max="50"
             value={length}
-            onValueChange={setLength}
-            max={50}
-            min={4}
-            step={1}
-            className="w-full"
+            onChange={(e) => setLength(parseInt(e.target.value))}
+            className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer"
           />
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <span>4</span>
+            <span>50</span>
+          </div>
         </div>
 
-        {/* Options */}
-        <div className="space-y-3 mb-6">
+        <div className="space-y-4 mb-6">
           <div className="flex items-center space-x-2">
             <Checkbox
               id="uppercase"
               checked={includeUppercase}
-              onCheckedChange={setIncludeUppercase}
+              onCheckedChange={(checked) => setIncludeUppercase(checked === true)}
             />
             <label htmlFor="uppercase" className="text-sm text-gray-700 dark:text-gray-300">
-              Include Uppercase (A-Z)
+              Include Uppercase Letters (A-Z)
             </label>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <Checkbox
               id="lowercase"
               checked={includeLowercase}
-              onCheckedChange={setIncludeLowercase}
+              onCheckedChange={(checked) => setIncludeLowercase(checked === true)}
             />
             <label htmlFor="lowercase" className="text-sm text-gray-700 dark:text-gray-300">
-              Include Lowercase (a-z)
+              Include Lowercase Letters (a-z)
             </label>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <Checkbox
               id="numbers"
               checked={includeNumbers}
-              onCheckedChange={setIncludeNumbers}
+              onCheckedChange={(checked) => setIncludeNumbers(checked === true)}
             />
             <label htmlFor="numbers" className="text-sm text-gray-700 dark:text-gray-300">
               Include Numbers (0-9)
             </label>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <Checkbox
               id="symbols"
               checked={includeSymbols}
-              onCheckedChange={setIncludeSymbols}
+              onCheckedChange={(checked) => setIncludeSymbols(checked === true)}
             />
             <label htmlFor="symbols" className="text-sm text-gray-700 dark:text-gray-300">
               Include Symbols (!@#$%^&*)
@@ -147,9 +129,37 @@ const PasswordGenerator = () => {
           </div>
         </div>
 
-        <Button onClick={generatePassword} className="w-full">
+        <Button onClick={generatePassword} className="w-full mb-4">
           Generate Password
         </Button>
+
+        {password && (
+          <div className="space-y-4">
+            <div className="relative">
+              <Input
+                type="text"
+                value={password}
+                readOnly
+                className="font-mono pr-20"
+              />
+              <Button
+                onClick={copyPassword}
+                variant="outline"
+                size="sm"
+                className="absolute right-1 top-1 h-8"
+              >
+                Copy
+              </Button>
+            </div>
+
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-600 dark:text-gray-400">Strength:</span>
+              <span className={`font-semibold ${strength.color}`}>
+                {strength.text}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

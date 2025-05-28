@@ -27,11 +27,12 @@ const Stopwatch = () => {
   }, [isRunning]);
 
   const formatTime = (milliseconds: number) => {
-    const mins = Math.floor(milliseconds / 60000);
-    const secs = Math.floor((milliseconds % 60000) / 1000);
-    const centisecs = Math.floor((milliseconds % 1000) / 10);
-    
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${centisecs.toString().padStart(2, '0')}`;
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const ms = Math.floor((milliseconds % 1000) / 10);
+
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
   };
 
   const handleStart = () => {
@@ -43,8 +44,8 @@ const Stopwatch = () => {
   };
 
   const handleReset = () => {
-    setIsRunning(false);
     setTime(0);
+    setIsRunning(false);
     setLaps([]);
   };
 
@@ -55,74 +56,59 @@ const Stopwatch = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto text-center">
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-8">Stopwatch</h2>
+    <div className="max-w-md mx-auto">
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-8 text-center">
+        Stopwatch
+      </h2>
 
-      {/* Time Display */}
-      <div className="bg-gray-900 text-white p-8 rounded-2xl mb-8">
-        <div className="text-5xl font-mono font-bold">
-          {formatTime(time)}
-        </div>
-      </div>
-
-      {/* Control Buttons */}
-      <div className="flex justify-center gap-4 mb-8">
-        {!isRunning ? (
-          <Button
-            onClick={handleStart}
-            className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 text-lg"
-            disabled={false}
-          >
-            Start
-          </Button>
-        ) : (
-          <Button
-            onClick={handleStop}
-            className="bg-red-500 hover:bg-red-600 text-white px-8 py-3 text-lg"
-          >
-            Stop
-          </Button>
-        )}
-        
-        <Button
-          onClick={handleLap}
-          variant="outline"
-          className="px-8 py-3 text-lg"
-          disabled={!isRunning}
-        >
-          Lap
-        </Button>
-        
-        <Button
-          onClick={handleReset}
-          variant="outline"
-          className="px-8 py-3 text-lg"
-        >
-          Reset
-        </Button>
-      </div>
-
-      {/* Lap Times */}
-      {laps.length > 0 && (
-        <div className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Lap Times</h3>
-          <div className="max-h-40 overflow-y-auto space-y-2">
-            {laps.map((lap, index) => (
-              <div
-                key={index}
-                className="flex justify-between items-center py-2 px-3 bg-gray-50 dark:bg-gray-600 rounded"
-              >
-                <span className="font-medium text-gray-700 dark:text-gray-300">
-                  Lap {laps.length - index}
-                </span>
-                <span className="font-mono text-gray-900 dark:text-white">
-                  {formatTime(lap)}
-                </span>
-              </div>
-            ))}
+      <div className="bg-white dark:bg-gray-700 p-8 rounded-xl border border-gray-200 dark:border-gray-600">
+        {/* Time Display */}
+        <div className="text-center mb-8">
+          <div className="text-6xl font-mono font-bold text-gray-800 dark:text-white mb-4">
+            {formatTime(time)}
           </div>
         </div>
-      )}
+
+        {/* Control Buttons */}
+        <div className="flex justify-center gap-4 mb-6">
+          {!isRunning ? (
+            <Button onClick={handleStart} className="min-w-20">
+              Start
+            </Button>
+          ) : (
+            <Button onClick={handleStop} variant="destructive" className="min-w-20">
+              Stop
+            </Button>
+          )}
+          <Button onClick={handleLap} disabled={!isRunning} variant="outline" className="min-w-20">
+            Lap
+          </Button>
+          <Button onClick={handleReset} variant="outline" className="min-w-20">
+            Reset
+          </Button>
+        </div>
+
+        {/* Lap Times */}
+        {laps.length > 0 && (
+          <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">
+              Lap Times
+            </h3>
+            <div className="max-h-48 overflow-y-auto space-y-2">
+              {laps.map((lapTime, index) => (
+                <div key={index} className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-600 rounded">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Lap {index + 1}
+                  </span>
+                  <span className="font-mono text-gray-800 dark:text-white">
+                    {formatTime(lapTime)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -3,35 +3,43 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { X } from 'lucide-react';
 
 interface Task {
   id: string;
   title: string;
   description: string;
-  date: Date;
   priority: 'low' | 'medium' | 'high';
+  dueDate: string;
   completed: boolean;
+  createdAt: Date;
 }
 
 const TaskPlanner = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium' as 'low' | 'medium' | 'high' });
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    priority: 'medium' as const,
+    dueDate: ''
+  });
+  const [filter, setFilter] = useState<'all' | 'pending' | 'completed' | 'high' | 'medium' | 'low'>('all');
+  const [sortBy, setSortBy] = useState<'dueDate' | 'priority' | 'created'>('dueDate');
 
   useEffect(() => {
-    const saved = localStorage.getItem('plannedTasks');
-    if (saved) {
-      setTasks(JSON.parse(saved).map((task: any) => ({
+    const savedTasks = localStorage.getItem('tasks');
+    if (savedTasks) {
+      setTasks(JSON.parse(savedTasks).map((task: any) => ({
         ...task,
-        date: new Date(task.date)
+        createdAt: new Date(task.createdAt)
       })));
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('plannedTasks', JSON.stringify(tasks));
+    localStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
 
   const addTask = () => {
@@ -39,15 +47,21 @@ const TaskPlanner = () => {
 
     const task: Task = {
       id: Date.now().toString(),
-      title: newTask.title,
-      description: newTask.description,
-      date: selectedDate,
+      title: newTask.title.trim(),
+      description: newTask.description.trim(),
       priority: newTask.priority,
-      completed: false
+      dueDate: newTask.dueDate,
+      completed: false,
+      createdAt: new Date()
     };
 
     setTasks([...tasks, task]);
-    setNewTask({ title: '', description: '', priority: 'medium' });
+    setNewTask({
+      title: '',
+      description: '',
+      priority: 'medium',
+      dueDate: ''
+    });
   };
 
   const toggleTask = (id: string) => {
@@ -60,130 +74,227 @@ const TaskPlanner = () => {
     setTasks(tasks.filter(task => task.id !== id));
   };
 
-  const tasksForSelectedDate = tasks.filter(task =>
-    format(task.date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
-  );
-
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'border-red-400 bg-red-50 dark:bg-red-900';
-      case 'medium': return 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900';
-      case 'low': return 'border-green-400 bg-green-50 dark:bg-green-900';
-      default: return 'border-gray-400 bg-gray-50 dark:bg-gray-900';
+      case 'high': return 'text-red-600 dark:text-red-400';
+      case 'medium': return 'text-yellow-600 dark:text-yellow-400';
+      case 'low': return 'text-green-600 dark:text-green-400';
+      default: return 'text-gray-600 dark:text-gray-400';
     }
+  };
+
+  const getPriorityBg = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'bg-red-100 dark:bg-red-900';
+      case 'medium': return 'bg-yellow-100 dark:bg-yellow-900';
+      case 'low': return 'bg-green-100 dark:bg-green-900';
+      default: return 'bg-gray-100 dark:bg-gray-900';
+    }
+  };
+
+  const sortTasks = (tasks: Task[]) => {
+    return [...tasks].sort((a, b) => {
+      switch (sortBy) {
+        case 'dueDate':
+          if (!a.dueDate && !b.dueDate) return 0;
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        case 'priority':
+          const priorityOrder = { high: 3, medium: 2, low: 1 };
+          return priorityOrder[b.priority] - priorityOrder[a.priority];
+        case 'created':
+          return b.createdAt.getTime() - a.createdAt.getTime();
+        default:
+          return 0;
+      }
+    });
+  };
+
+  const filteredTasks = sortTasks(tasks.filter(task => {
+    switch (filter) {
+      case 'pending': return !task.completed;
+      case 'completed': return task.completed;
+      case 'high':
+      case 'medium':
+      case 'low': return task.priority === filter;
+      default: return true;
+    }
+  }));
+
+  const isOverdue = (dueDate: string) => {
+    if (!dueDate) return false;
+    return new Date(dueDate) < new Date() && new Date(dueDate).toDateString() !== new Date().toDateString();
   };
 
   return (
     <div className="max-w-4xl mx-auto">
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-8 text-center">
-        Daily Task Planner
+        Task Planner
       </h2>
 
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* Calendar */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Add Task Form */}
         <div className="bg-white dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600">
           <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">
-            Select Date
+            Add New Task
           </h3>
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={(date) => date && setSelectedDate(date)}
-            className="rounded-md border-0"
-          />
-        </div>
-
-        {/* Task Form & List */}
-        <div className="space-y-6">
-          {/* Add Task Form */}
-          <div className="bg-white dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600">
-            <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">
-              Add Task for {format(selectedDate, 'PPP')}
-            </h3>
-            
-            <div className="space-y-4">
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Title *
+              </label>
               <Input
-                placeholder="Task title"
                 value={newTask.title}
                 onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                placeholder="Enter task title"
               />
-              
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Description
+              </label>
               <Textarea
-                placeholder="Description (optional)"
                 value={newTask.description}
                 onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                rows={2}
+                placeholder="Enter task description"
+                rows={3}
               />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Priority
+              </label>
+              <Select value={newTask.priority} onValueChange={(value: any) => setNewTask({ ...newTask, priority: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Due Date
+              </label>
+              <Input
+                type="date"
+                value={newTask.dueDate}
+                onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
+              />
+            </div>
+            
+            <Button 
+              onClick={addTask} 
+              disabled={!newTask.title.trim()}
+              className="w-full"
+            >
+              Add Task
+            </Button>
+          </div>
+        </div>
+
+        {/* Task List */}
+        <div className="lg:col-span-2 bg-white dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+              Tasks ({filteredTasks.length})
+            </h3>
+            
+            <div className="flex gap-2">
+              <Select value={filter} onValueChange={(value: any) => setFilter(value)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="high">High Priority</SelectItem>
+                  <SelectItem value="medium">Medium Priority</SelectItem>
+                  <SelectItem value="low">Low Priority</SelectItem>
+                </SelectContent>
+              </Select>
               
-              <div className="flex gap-2">
-                {['low', 'medium', 'high'].map(priority => (
-                  <Button
-                    key={priority}
-                    variant={newTask.priority === priority ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setNewTask({ ...newTask, priority: priority as any })}
-                  >
-                    {priority.charAt(0).toUpperCase() + priority.slice(1)}
-                  </Button>
-                ))}
-              </div>
-              
-              <Button onClick={addTask} className="w-full" disabled={!newTask.title.trim()}>
-                Add Task
-              </Button>
+              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dueDate">Due Date</SelectItem>
+                  <SelectItem value="priority">Priority</SelectItem>
+                  <SelectItem value="created">Created</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* Tasks for Selected Date */}
-          <div className="bg-white dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600">
-            <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">
-              Tasks for {format(selectedDate, 'PPP')} ({tasksForSelectedDate.length})
-            </h3>
-            
-            {tasksForSelectedDate.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400">No tasks planned for this date.</p>
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {filteredTasks.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                No tasks found. Add a task to get started!
+              </div>
             ) : (
-              <div className="space-y-3">
-                {tasksForSelectedDate.map(task => (
-                  <div
-                    key={task.id}
-                    className={`p-4 rounded-lg border-l-4 ${getPriorityColor(task.priority)}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+              filteredTasks.map(task => (
+                <div
+                  key={task.id}
+                  className={`p-4 rounded-lg border ${task.completed ? 'opacity-75' : ''} ${
+                    isOverdue(task.dueDate) && !task.completed ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-600'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={task.completed}
+                      onCheckedChange={() => toggleTask(task.id)}
+                      className="mt-1"
+                    />
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
                         <h4 className={`font-medium ${task.completed ? 'line-through text-gray-500' : 'text-gray-800 dark:text-white'}`}>
                           {task.title}
                         </h4>
-                        {task.description && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            {task.description}
-                          </p>
-                        )}
-                        <span className="text-xs font-medium px-2 py-1 rounded bg-gray-200 dark:bg-gray-600 mt-2 inline-block">
-                          {task.priority} priority
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 text-xs rounded-full ${getPriorityBg(task.priority)} ${getPriorityColor(task.priority)}`}>
+                            {task.priority}
+                          </span>
+                          <Button
+                            onClick={() => deleteTask(task.id)}
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <X size={16} />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex gap-2 ml-4">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => toggleTask(task.id)}
-                        >
-                          {task.completed ? 'Undo' : 'Done'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => deleteTask(task.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          Delete
-                        </Button>
+                      
+                      {task.description && (
+                        <p className={`text-sm mb-2 ${task.completed ? 'line-through text-gray-500' : 'text-gray-600 dark:text-gray-400'}`}>
+                          {task.description}
+                        </p>
+                      )}
+                      
+                      <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                        {task.dueDate && (
+                          <span className={isOverdue(task.dueDate) && !task.completed ? 'text-red-600 font-medium' : ''}>
+                            Due: {new Date(task.dueDate).toLocaleDateString()}
+                            {isOverdue(task.dueDate) && !task.completed && ' (Overdue)'}
+                          </span>
+                        )}
+                        <span>Created: {task.createdAt.toLocaleDateString()}</span>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))
             )}
           </div>
         </div>
